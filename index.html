@@ -37,7 +37,7 @@
             margin-top: 0;
         }
         
-        /* --- Contenedor de Login (NUEVO) --- */
+        /* --- Contenedor de Login --- */
         #login-container {
             max-width: 400px;
             margin: 50px auto;
@@ -68,17 +68,16 @@
             padding: 10px;
             border: 1px solid #ccc;
             border-radius: 5px;
-            box-sizing: border-box; /* Asegura que el padding no afecte el ancho */
+            box-sizing: border-box;
         }
         
         #login-buttons {
             display: flex;
-            gap: 10px;
             margin-top: 20px;
         }
         
         .auth-btn {
-            flex: 1;
+            width: 100%; /* El botón ocupa todo el ancho */
             padding: 12px;
             color: white;
             border: none;
@@ -91,8 +90,6 @@
         
         #login-btn { background-color: #007bff; }
         #login-btn:hover { background-color: #0056b3; }
-        #register-btn { background-color: #6c757d; }
-        #register-btn:hover { background-color: #5a6268; }
         
         #auth-error {
             color: #dc3545;
@@ -103,7 +100,7 @@
 
         /* Contenedor de la App (se oculta al inicio) */
         #app-container {
-            display: none; /* Oculto hasta el login */
+            display: none;
         }
         
         #logout-btn {
@@ -279,7 +276,6 @@
         </div>
         <div id="login-buttons">
             <button id="login-btn" class="auth-btn">Iniciar Sesión</button>
-            <button id="register-btn" class="auth-btn">Registrarse</button>
         </div>
         <p id="auth-error"></p>
     </div>
@@ -375,7 +371,6 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { 
             getAuth, 
-            createUserWithEmailAndPassword, 
             signInWithEmailAndPassword, 
             onAuthStateChanged, 
             signOut 
@@ -384,11 +379,9 @@
             getDatabase, 
             ref, 
             set, 
-            get, 
             onValue, 
             push, 
-            remove,
-            child
+            remove
         } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
         // Tu configuración de Firebase que proporcionaste
@@ -412,7 +405,7 @@
         const authError = document.getElementById('auth-error');
         
         const loginBtn = document.getElementById('login-btn');
-        const registerBtn = document.getElementById('register-btn');
+        // const registerBtn = document.getElementById('register-btn'); // ELIMINADO
         const logoutBtn = document.getElementById('logout-btn');
         
         const form = document.getElementById('inventory-form');
@@ -429,8 +422,8 @@
         // --- Variables de Estado Global (dentro del módulo) ---
         let currentUser = null;
         let userInventoryRef = null;
-        let currentInventoryData = {}; // Caché local de los datos de Firebase
-        let editKey = null; // Reemplaza a editIndex. Guarda la key de Firebase.
+        let currentInventoryData = {};
+        let editKey = null;
 
         // --- 1. LÓGICA DE AUTENTICACIÓN ---
 
@@ -445,7 +438,6 @@
                 appContainer.style.display = 'block';
                 authError.textContent = '';
                 
-                // Inicia la escucha de la base de datos
                 startDatabaseListener();
             } else {
                 // Usuario ha cerrado sesión
@@ -454,8 +446,8 @@
                 
                 loginContainer.style.display = 'block';
                 appContainer.style.display = 'none';
-                tableBody.innerHTML = ''; // Limpia la tabla
-                currentInventoryData = {}; // Limpia la caché
+                tableBody.innerHTML = '';
+                currentInventoryData = {};
             }
         });
 
@@ -470,17 +462,6 @@
                 });
         });
 
-        // Registrarse
-        registerBtn.addEventListener('click', () => {
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            
-            createUserWithEmailAndPassword(auth, email, password)
-                .catch((error) => {
-                    authError.textContent = getAuthErrorMessage(error.code);
-                });
-        });
-        
         // Cerrar Sesión
         logoutBtn.addEventListener('click', () => {
             signOut(auth);
@@ -488,24 +469,16 @@
 
         // --- 2. LÓGICA DE BASE DE DATOS (CRUD) ---
 
-        /**
-         * Inicia el listener de Realtime Database.
-         * Se activa una vez al cargar y luego cada vez que los datos cambian.
-         */
         function startDatabaseListener() {
             if (!userInventoryRef) return;
             
             onValue(userInventoryRef, (snapshot) => {
                 const data = snapshot.val();
-                currentInventoryData = data || {}; // Almacena en caché
+                currentInventoryData = data || {};
                 renderTable(currentInventoryData);
             });
         }
 
-        /**
-         * Renderiza la tabla de inventario a partir de un OBJETO de datos.
-         * (Firebase RTDB no usa arrays, usa objetos con keys únicas)
-         */
         function renderTable(data) {
             tableBody.innerHTML = ''; 
 
@@ -514,7 +487,6 @@
                 return;
             }
 
-            // Itera sobre el objeto (key es el ID de Firebase)
             for (const key in data) {
                 const item = data[key];
                 const tr = document.createElement('tr');
@@ -538,9 +510,6 @@
             }
         }
 
-        /**
-         * Manejador del submit del formulario (Crear y Actualizar)
-         */
         form.addEventListener('submit', (e) => {
             e.preventDefault(); 
             if (!currentUser) return;
@@ -556,7 +525,6 @@
                     nombreEquipo: document.getElementById('nombreEquipo').value,
                     usuarioAsignado: document.getElementById('usuarioAsignado').value,
                     departamento: document.getElementById('departamento').value,
-                    // fotoBase64 se manejará a continuación
                 };
 
                 if (editKey) {
@@ -565,22 +533,19 @@
                     dataFromForm.fotoBase64 = newFotoBase64 === null ? oldItem.fotoBase64 : newFotoBase64;
                     
                     const itemRef = ref(db, `inventario/${currentUser.uid}/${editKey}`);
-                    set(itemRef, dataFromForm); // 'set' sobrescribe en esa key
+                    set(itemRef, dataFromForm);
                     
                 } else {
                     // --- MODO AGREGAR (Crear) ---
                     dataFromForm.fotoBase64 = newFotoBase64;
                     
-                    const newItemRef = push(userInventoryRef); // 'push' crea una key nueva
+                    const newItemRef = push(userInventoryRef);
                     set(newItemRef, dataFromForm);
                 }
                 
                 resetForm();
-                // No es necesario llamar a renderTable(),
-                // el listener onValue() lo hará automáticamente.
             };
 
-            // Manejo del archivo (igual que antes)
             if (file) {
                 const reader = new FileReader();
                 reader.onloadend = () => processSave(reader.result);
@@ -590,21 +555,16 @@
             }
         });
 
-        /**
-         * Manejador de clics en la tabla (Editar y Eliminar)
-         */
         tableBody.addEventListener('click', (e) => {
             const target = e.target;
-            const key = target.dataset.key; // Obtenemos la key de Firebase
+            const key = target.dataset.key;
             
             if (!key) return;
 
-            // --- Clic en Editar ---
             if (target.classList.contains('edit')) {
                 loadItemForEdit(key);
             }
             
-            // --- Clic en Eliminar ---
             if (target.classList.contains('delete')) {
                 const itemModelo = currentInventoryData[key]?.modelo || 'el equipo';
                 if (confirm(`¿Está seguro de que desea eliminar ${itemModelo}?`)) {
@@ -613,10 +573,6 @@
             }
         });
 
-        /**
-         * Carga un item en el formulario para editarlo
-         * @param {string} key - La key de Firebase del item.
-         */
         function loadItemForEdit(key) {
             const item = currentInventoryData[key];
             if (!item) return;
@@ -636,24 +592,17 @@
             form.scrollIntoView({ behavior: 'smooth' });
         }
 
-        /**
-         * Elimina un item de Firebase
-         * @param {string} key - La key de Firebase del item.
-         */
         function deleteItem(key) {
             if (!currentUser) return;
             
             const itemRef = ref(db, `inventario/${currentUser.uid}/${key}`);
-            remove(itemRef); // 'remove' borra la key y sus datos
+            remove(itemRef);
             
             if (editKey === key) {
                 resetForm();
             }
         }
         
-        /**
-         * Resetea el formulario y el estado de edición
-         */
         function resetForm() {
             form.reset();
             editKey = null;
@@ -663,9 +612,9 @@
 
         // --- 3. LÓGICA DE IMPORTACIÓN / EXPORTACIÓN ---
         
-        // Exportar a CSV (lee de la caché local)
+        // Exportar a CSV
         exportCsvBtn.addEventListener('click', () => {
-            const inventory = Object.values(currentInventoryData); // Convierte el objeto a array
+            const inventory = Object.values(currentInventoryData);
             if (inventory.length === 0) {
                 alert('No hay datos para exportar.');
                 return;
@@ -683,21 +632,20 @@
             downloadFile(csvContent.join('\r\n'), 'inventario_equipos.csv', 'text/csv;charset=utf-8;');
         });
 
-        // Respaldar a JSON (NUEVO)
+        // Respaldar a JSON
         backupJsonBtn.addEventListener('click', () => {
             if (Object.keys(currentInventoryData).length === 0) {
                 alert('No hay datos para respaldar.');
                 return;
             }
             
-            // Exporta los datos tal cual están en Firebase (con keys)
             const jsonString = JSON.stringify(currentInventoryData, null, 2);
             downloadFile(jsonString, 'inventario_backup.json', 'application/json;charset=utf-8;');
         });
         
-        // Importar desde JSON (NUEVO)
+        // Importar desde JSON
         importJsonBtn.addEventListener('click', () => {
-            importFileInput.click(); // Abre el selector de archivos
+            importFileInput.click();
         });
         
         importFileInput.addEventListener('change', (event) => {
@@ -710,10 +658,9 @@
                     const importedData = JSON.parse(e.target.result);
                     
                     if (confirm("ADVERTENCIA:\nEsto reemplazará TODO el inventario actual en la nube con el contenido de este archivo.\n\n¿Desea continuar?")) {
-                        // Sube los datos importados a Firebase, reemplazando todo
                         set(userInventoryRef, importedData)
                             .then(() => {
-                                alert('Importación completada exitosamente.');
+                                alert('Importación completada exitosamente. La tabla se actualizará automáticamente.');
                             })
                             .catch((error) => {
                                 alert('Error al importar: ' + error.message);
@@ -722,7 +669,6 @@
                 } catch (error) {
                     alert('Error: El archivo seleccionado no es un JSON válido.');
                 } finally {
-                    // Resetea el input para poder subir el mismo archivo de nuevo
                     importFileInput.value = null;
                 }
             };
@@ -737,10 +683,8 @@
                     return 'Contraseña incorrecta.';
                 case 'auth/user-not-found':
                     return 'Usuario no encontrado.';
-                case 'auth/email-already-in-use':
-                    return 'El correo electrónico ya está en uso.';
-                case 'auth/weak-password':
-                    return 'La contraseña debe tener al menos 6 caracteres.';
+                case 'auth/invalid-email':
+                    return 'El formato del correo electrónico es inválido.';
                 default:
                     return 'Error de autenticación: ' + code;
             }
@@ -764,9 +708,6 @@
             return str; 
         }
         
-        /**
-         * Función genérica para disparar descargas de archivos
-         */
         function downloadFile(content, fileName, mimeType) {
             const blob = new Blob([content], { type: mimeType });
             const link = document.createElement('a');
