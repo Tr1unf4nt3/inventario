@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventario de Equipos con Firebase</title>
+    
+    <!-- CSS Integrado -->
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f4f7f6;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        /* --- Vistas (Login y App) --- */
+        .hide {
+            display: none;
+        }
+
+        /* --- Loader (NUEVO) --- */
+        #loader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.5rem;
+            color: #0056b3;
+            z-index: 1000;
+        }
+
+        /* --- Vista de Login (NUEVO) --- */
+        #login-view {
+            max-width: 400px;
+            margin: 50px auto;
+            padding: 30px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        #login-view h2 {
+            text-align: center;
+            color: #0056b3;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        .form-group input[type="text"],
+        .form-group input[type="email"],
+        .form-group input[type="password"],
+        .form-group select,
+        .form-group input[type="file"] {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+        
+        .form-group input[type="file"] {
+            padding: 7px;
+        }
+
+        .auth-btn {
+            padding: 12px;
+            width: 100%;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            margin-top: 10px;
+        }
+        .auth-btn:hover { background-color: #0056b3; }
+
+        .toggle-form {
+            text-align: center;
+            margin-top: 15px;
+            color: #007bff;
+            cursor: pointer;
+        }
+        .toggle-form:hover { text-decoration: underline; }
+
+        #auth-error {
+            color: #dc3545;
+            text-align: center;
+            margin-top: 10px;
+        }
+
+        /* --- Vista de la App --- */
+        .app-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 10px;
+        }
+
+        .app-header h1 {
+            color: #0056b3;
+            border: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        #logout-btn {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        #logout-btn:hover { background-color: #c82333; }
+
+        /* ... [Estilos anteriores de Formulario y Tabla] ... */
+
+        h2 { color: #0056b3; margin-top: 20px; }
+        
+        #form-container h2 {
+             border-bottom: 2px solid #e0e0e0;
+             padding-bottom: 10px;
+        }
+
+        #inventory-form {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        #foto-hint {
+            font-size: 0.9em;
+            color: #666;
+            display: none;
+            margin-top: 5px;
+        }
+
+        #submit-btn {
+            grid-column: 1 / -1;
+            padding: 12px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .list-header {
+            display: flex;
+            flex-wrap: wrap; /* Para responsividad de botones */
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .list-header h2 { border: none; padding: 0; margin: 0; }
+        
+        .header-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .header-buttons button, .header-buttons label {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.95rem;
+            transition: background-color 0.3s ease;
+            font-family: inherit;
+        }
+        .header-buttons button.json { background-color: #17a2b8; }
+        .header-buttons button.json:hover { background-color: #138496; }
+        .header-buttons button:hover, .header-buttons label:hover { background-color: #218838; }
+
+        #list-container { overflow-x: auto; }
+
+        #inventory-table { width: 100%; border-collapse: collapse; }
+
+        #inventory-table th, #inventory-table td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+            vertical-align: middle;
+        }
+        #inventory-table th { background-color: #f2f2f2; font-weight: 700; }
+        #inventory-table tr:nth-child(even) { background-color: #f9f9f9; }
+        #inventory-table img {
+            max-width: 100px;
+            max-height: 100px;
+            border-radius: 4px;
+            object-fit: cover;
+        }
+        
+        .action-btn {
+            padding: 8px 12px; color: white; border: none;
+            border-radius: 5px; cursor: pointer; font-size: 0.9rem;
+            margin-right: 5px;
+        }
+        .action-btn.edit { background-color: #007bff; }
+        .action-btn.edit:hover { background-color: #0056b3; }
+        .action-btn.delete { background-color: #dc3545; }
+        .action-btn.delete:hover { background-color: #c82333; }
+
+        #json-import-input { display: none; } /* Ocultar input real */
+    </style>
+</head>
+<body>
+
+    <!-- Loader -->
+    <div id="loader">Cargando...</div>
+
+    <!-- Vista de Login -->
+    <div id="login-view">
+        <!-- Formulario de Login -->
+        <form id="login-form">
+            <h2>Iniciar Sesión</h2>
+            <div class="form-group">
+                <label for="login-email">Email:</label>
+                <input type="email" id="login-email" required>
+            </div>
+            <div class="form-group">
+                <label for="login-password">Contraseña:</label>
+                <input type="password" id="login-password" required>
+            </div>
+            <button type="submit" class="auth-btn">Iniciar Sesión</button>
+            <p id="auth-error"></p>
+            <p class="toggle-form" id="toggle-to-register">¿No tienes cuenta? Regístrate</p>
+        </form>
+
+        <!-- Formulario de Registro (oculto) -->
+        <form id="register-form" class="hide">
+            <h2>Registro</h2>
+            <div class="form-group">
+                <label for="register-email">Email:</label>
+                <input type="email" id="register-email" required>
+            </div>
+            <div class="form-group">
+                <label for="register-password">Contraseña (mín. 6 caracteres):</label>
+                <input type="password" id="register-password" required>
+            </div>
+            <button type="submit" class="auth-btn">Registrarse</button>
+            <p class="toggle-form" id="toggle-to-login">¿Ya tienes cuenta? Inicia Sesión</p>
+        </form>
+    </div>
+
+    <!-- Vista Principal de la App (oculta por defecto) -->
+    <div id="app-view" class="container hide">
+        <div class="app-header">
+            <h1>Inventario de Equipos</h1>
+            <button id="logout-btn">Cerrar Sesión</button>
+        </div>
+
+        <!-- Contenedor del Formulario -->
+        <div id="form-container">
+            <h2>Registrar o Editar Equipo</h2>
+            <form id="inventory-form">
+                <div class="form-group">
+                    <label for="marca">Marca:</label>
+                    <input type="text" id="marca" required>
+                </div>
+                <div class="form-group">
+                    <label for="modelo">Modelo:</label>
+                    <input type="text" id="modelo" required>
+                </div>
+                <div class="form-group">
+                    <label for="serial">Serial:</label>
+                    <input type="text" id="serial" required>
+                </div>
+                <div class="form-group">
+                    <label for="so">Sistema Operativo:</label>
+                    <select id="so" required>
+                        <option value="">Seleccione...</option>
+                        <option value="Windows 11">Windows 11</option>
+                        <option value="Windows 10">Windows 10</option>
+                        <option value="macOS">macOS</option>
+                        <option value="Linux (Ubuntu)">Linux (Ubuntu)</option>
+                        <option value="Linux (Otro)">Linux (Otro)</option>
+                        <option value="Otro">Otro</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="nombreEquipo">Nombre del Equipo:</label>
+                    <input type="text" id="nombreEquipo" required>
+                </div>
+                <div class="form-group">
+                    <label for="usuarioAsignado">Usuario Asignado:</label>
+                    <input type="text" id="usuarioAsignado">
+                </div>
+                <div class="form-group">
+                    <label for="departamento">Departamento:</label>
+                    <input type="text" id="departamento">
+                </div>
+                <div class="form-group">
+                    <label for="foto">Foto del Equipo:</label>
+                    <input type="file" id="foto" accept="image/*">
+                    <span id="foto-hint">Foto cargada. Reemplace solo si desea cambiarla.</span>
+                </div>
+                <button type="submit" id="submit-btn">Agregar al Inventario</button>
+            </form>
+        </div>
+
+        <!-- Contenedor de la Lista -->
+        <div id="list-container">
+            <div class="list-header">
+                <h2>Equipos Registrados</h2>
+                <div class="header-buttons">
+                    <button id="json-export-btn" class="json">Exportar a JSON</button>
+                    <!-- Label que activa el input oculto -->
+                    <label for="json-import-input" class="json">Importar JSON</label>
+                    <input type="file" id="json-import-input" accept=".json">
+                    <button id="export-csv-btn">Exportar a Excel (CSV)</button>
+                </div>
+            </div>
+            
+            <table id="inventory-table">
+                <thead>
+                    <tr>
+                        <th>Foto</th>
+                        <th>Marca</th>
+                        <th>Modelo</th>
+                        <th>Serial</th>
+                        <th>S.O.</th>
+                        <th>Nombre Equipo</th>
+                        <th>Usuario</th>
+                        <th>Departamento</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="inventory-table-body">
+                    <!-- Los datos se insertarán aquí vía Firebase -->
+                </tbody>
+            </table>
+        </div>
+
+    </div> <!-- Fin #app-view -->
+
+    <!-- SDKs de Firebase -->
+    <script type="module">
+        // Importa las funciones que necesitas
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { 
+            getAuth, 
+            onAuthStateChanged, 
+            createUserWithEmailAndPassword, 
+            signInWithEmailAndPassword, 
+            signOut 
+        } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { 
+            getDatabase, 
+            ref, 
+            set, 
+            push, 
+            onValue, 
+            get,
+            remove, 
+            update 
+        } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        import { 
+            getStorage, 
+            ref as storageRef, 
+            uploadBytes, 
+            getDownloadURL, 
+            deleteObject 
+        } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+
+        // Tu configuración de Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyDdEUFP1WRTIcCHhZwFWKMSxqqVi4yVLFo",
+            authDomain: "inventario-2e323.firebaseapp.com",
+            projectId: "inventario-2e323",
+            storageBucket: "inventario-2e323.firebasestorage.app",
+            messagingSenderId: "737250244614",
+            appId: "1:737250244614:web:8b991b913a99a4b0a46b87",
+            // Necesitamos añadir la URL de la Realtime Database
+            databaseURL: "https://inventario-2e323-default-rtdb.firebaseio.com"
+        };
+
+        // Inicializar Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const database = getDatabase(app);
+        const storage = getStorage(app);
+
+        // --- Referencias a Elementos DOM ---
+        const loader = document.getElementById('loader');
+        const loginView = document.getElementById('login-view');
+        const appView = document.getElementById('app-view');
+
+        // Formulario de Autenticación
+        const loginForm = document.getElementById('login-form');
+        const registerForm = document.getElementById('register-form');
+        const loginEmail = document.getElementById('login-email');
+        const loginPassword = document.getElementById('login-password');
+        const registerEmail = document.getElementById('register-email');
+        const registerPassword = document.getElementById('register-password');
+        const authError = document.getElementById('auth-error');
+        const toggleToRegister = document.getElementById('toggle-to-register');
+        const toggleToLogin = document.getElementById('toggle-to-login');
+        const logoutBtn = document.getElementById('logout-btn');
+
+        // Formulario de App
+        const inventoryForm = document.getElementById('inventory-form');
+        const submitBtn = document.getElementById('submit-btn');
+        const tableBody = document.getElementById('inventory-table-body');
+        const fotoInput = document.getElementById('foto');
+        const fotoHint = document.getElementById('foto-hint');
+
+        // Botones de Import/Export
+        const exportCsvBtn = document.getElementById('export-csv-btn');
+        const exportJsonBtn = document.getElementById('json-export-btn');
+        const importJsonInput = document.getElementById('json-import-input');
+
+        // --- Estado Global de la App ---
+        let currentUserId = null;
+        let editKey = null; // Usaremos la Key de Firebase en lugar de 'index'
+        let inventoryData = {}; // Almacenará los datos locales para edición/borrado
+
+        // --- Funciones de Utilidad ---
+        
+        function showLoader(show) {
+            loader.classList.toggle('hide', !show);
+        }
+
+        function escapeHTML(str) {
+            if (str === null || str === undefined) return '';
+            return String(str).replace(/[&<>"']/g, (match) => {
+                const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+                return map[match];
+            });
+        }
+        
+        // --- Lógica de Autenticación ---
+
+        // Observador del estado de autenticación
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                // Usuario ha iniciado sesión
+                currentUserId = user.uid;
+                appView.classList.remove('hide');
+                loginView.classList.add('hide');
+                authError.textContent = '';
+                setupInventoryListener(); // Configura el listener de la base de datos
+            } else {
+                // Usuario ha cerrado sesión
+                currentUserId = null;
+                appView.classList.add('hide');
+                loginView.classList.remove('hide');
+                inventoryData = {}; // Limpia datos
+                renderTable(inventoryData); // Limpia tabla
+            }
+            showLoader(false); // Oculta el loader principal
+        });
+
+        // Evento de Login
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            showLoader(true);
+            signInWithEmailAndPassword(auth, loginEmail.value, loginPassword.value)
+                .catch((error) => {
+                    authError.textContent = "Error: " + error.message;
+                    showLoader(false);
+                });
+        });
+
+        // Evento de Registro
+        registerForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            showLoader(true);
+            createUserWithEmailAndPassword(auth, registerEmail.value, registerPassword.value)
+                .catch((error) => {
+                    authError.textContent = "Error: " + error.message;
+                    showLoader(false);
+                });
+        });
+
+        // Evento de Cerrar Sesión
+        logoutBtn.addEventListener('click', () => {
+            showLoader(true);
+            signOut(auth);
+        });
+
+        // Toggles para forms de auth
+        toggleToRegister.addEventListener('click', () => {
+            loginForm.classList.add('hide');
+            registerForm.classList.remove('hide');
+            authError.textContent = '';
+        });
+        toggleToLogin.addEventListener('click', () => {
+            loginForm.classList.remove('hide');
+            registerForm.classList.add('hide');
+            authError.textContent = '';
+        });
+
+        // --- Lógica Principal del Inventario (Firebase) ---
+
+        /**
+         * Configura el listener de Realtime Database (onValue).
+         * Esto se actualiza automáticamente cuando los datos cambian.
+         */
+        function setupInventoryListener() {
+            if (!currentUserId) return;
+            const dbRef = ref(database, 'inventarios/' + currentUserId);
+            
+            onValue(dbRef, (snapshot) => {
+                inventoryData = snapshot.val() || {}; // Guarda los datos localmente
+                renderTable(inventoryData);
+            });
+        }
+
+        /**
+         * Renderiza la tabla de inventario desde el objeto de datos.
+         */
+        function renderTable(data) {
+            tableBody.innerHTML = ''; 
+            if (Object.keys(data).length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="9" style="text-align: center;">No hay equipos registrados.</td></tr>';
+                return;
+            }
+
+            // data es un objeto, usamos Object.entries para iterar
+            Object.entries(data).forEach(([key, item]) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>
+                        <img src="${item.fotoURL || 'https://placehold.co/100x100/eee/ccc?text=Sin+Foto'}" alt="Foto de ${item.modelo}">
+                    </td>
+                    <td>${escapeHTML(item.marca)}</td>
+                    <td>${escapeHTML(item.modelo)}</td>
+                    <td>${escapeHTML(item.serial)}</td>
+                    <td>${escapeHTML(item.so)}</td>
+                    <td>${escapeHTML(item.nombreEquipo)}</td>
+                    <td>${escapeHTML(item.usuarioAsignado)}</td>
+                    <td>${escapeHTML(item.departamento)}</td>
+                    <td>
+                        <button class="action-btn edit" data-key="${key}">Editar</button>
+                        <button class="action-btn delete" data-key="${key}">Eliminar</button>
+                    </td>
+                `;
+                tableBody.appendChild(tr);
+            });
+        }
+
+        /**
+         * Sube un archivo a Firebase Storage.
+         * @returns {Promise<string>} La URL de descarga del archivo.
+         */
+        async function uploadPhoto(file) {
+            if (!currentUserId) throw new Error("No hay usuario autenticado.");
+            
+            const filePath = `fotos/${currentUserId}/${Date.now()}-${file.name}`;
+            const fileRef = storageRef(storage, filePath);
+            
+            await uploadBytes(fileRef, file);
+            const downloadURL = await getDownloadURL(fileRef);
+            
+            return downloadURL;
+        }
+
+        /**
+         * Elimina una foto de Firebase Storage usando su URL.
+         */
+        async function deletePhoto(fotoURL) {
+            if (!fotoURL || fotoURL.includes('placehold.co')) {
+                return; // No hacer nada si no hay foto o es la de placeholder
+            }
+            try {
+                const fileRef = storageRef(storage, fotoURL);
+                await deleteObject(fileRef);
+            } catch (error) {
+                console.warn("No se pudo eliminar la foto (quizás ya no existía):", error.message);
+            }
+        }
+
+
+        // Evento de Submit del Formulario (Crear o Editar)
+        inventoryForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!currentUserId) return;
+            showLoader(true);
+
+            const file = fotoInput.files[0];
+            let newFotoURL = null;
+
+            // Recopilar datos del formulario
+            let itemData = {
+                marca: document.getElementById('marca').value,
+                modelo: document.getElementById('modelo').value,
+                serial: document.getElementById('serial').value,
+                so: document.getElementById('so').value,
+                nombreEquipo: document.getElementById('nombreEquipo').value,
+                usuarioAsignado: document.getElementById('usuarioAsignado').value,
+                departamento: document.getElementById('departamento').value,
+                // fotoURL se añadirá después
+            };
+
+            try {
+                if (editKey) {
+                    // --- MODO EDICIÓN ---
+                    const dbRef = ref(database, `inventarios/${currentUserId}/${editKey}`);
+                    const oldItemData = inventoryData[editKey];
+                    
+                    if (file) {
+                        // Si hay archivo nuevo, subirlo
+                        newFotoURL = await uploadPhoto(file);
+                        itemData.fotoURL = newFotoURL;
+                        // Y si había foto vieja, borrarla
+                        if (oldItemData.fotoURL) {
+                            await deletePhoto(oldItemData.fotoURL);
+                        }
+                    } else {
+                        // Si no hay archivo nuevo, mantener la URL vieja
+                        itemData.fotoURL = oldItemData.fotoURL;
+                    }
+                    
+                    await update(dbRef, itemData); // Actualizar en DB
+
+                } else {
+                    // --- MODO CREACIÓN ---
+                    if (file) {
+                        newFotoURL = await uploadPhoto(file);
+                        itemData.fotoURL = newFotoURL;
+                    } else {
+                        itemData.fotoURL = null; // O la URL de placeholder si prefieres
+                    }
+                    
+                    const dbRef = ref(database, 'inventarios/' + currentUserId);
+                    await push(dbRef, itemData); // Añadir a la DB
+                }
+                
+                resetForm();
+
+            } catch (error) {
+                console.error("Error al guardar:", error);
+                alert("Error al guardar: " + error.message);
+            } finally {
+                showLoader(false);
+            }
+        });
+
+        // Clics en la Tabla (Editar y Borrar)
+        tableBody.addEventListener('click', async (e) => {
+            const target = e.target;
+            const key = target.dataset.key;
+
+            if (!key || !currentUserId) return;
+
+            // --- Clic en Editar ---
+            if (target.classList.contains('edit')) {
+                loadItemForEdit(key);
+            }
+            
+            // --- Clic en Eliminar ---
+            if (target.classList.contains('delete')) {
+                const item = inventoryData[key];
+                if (confirm(`¿Está seguro de que desea eliminar el equipo ${item.modelo}?`)) {
+                    showLoader(true);
+                    try {
+                        const dbRef = ref(database, `inventarios/${currentUserId}/${key}`);
+                        // 1. Eliminar foto de Storage (si existe)
+                        if (item.fotoURL) {
+                            await deletePhoto(item.fotoURL);
+                        }
+                        // 2. Eliminar entrada de la base de datos
+                        await remove(dbRef);
+                        // El listener onValue actualizará la tabla automáticamente
+                    } catch (error) {
+                        console.error("Error al eliminar:", error);
+                        alert("Error al eliminar: " + error.message);
+                    } finally {
+                        showLoader(false);
+                        if (editKey === key) resetForm(); // Resetea form si se borra el item que se estaba editando
+                    }
+                }
+            }
+        });
+
+        /**
+         * Carga un item en el formulario para editarlo.
+         * @param {string} key - La key de Firebase del item.
+         */
+        function loadItemForEdit(key) {
+            const item = inventoryData[key];
+            if (!item) return;
+            
+            document.getElementById('marca').value = item.marca || '';
+            document.getElementById('modelo').value = item.modelo || '';
+            document.getElementById('serial').value = item.serial || '';
+            document.getElementById('so').value = item.so || '';
+            document.getElementById('nombreEquipo').value = item.nombreEquipo || '';
+            document.getElementById('usuarioAsignado').value = item.usuarioAsignado || '';
+            document.getElementById('departamento').value = item.departamento || '';
+            
+            editKey = key;
+            submitBtn.textContent = 'Guardar Cambios';
+            fotoHint.style.display = 'block'; // Mostrar el aviso de la foto
+
+            inventoryForm.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        /**
+         * Resetea el formulario y el estado de edición.
+         */
+        function resetForm() {
+            inventoryForm.reset();
+            editKey = null;
+            submitBtn.textContent = 'Agregar al Inventario';
+            fotoHint.style.display = 'none';
+        }
+
+        // --- Lógica de Importación / Exportación ---
+
+        // Exportar a CSV (Misma lógica de antes)
+        exportCsvBtn.addEventListener('click', () => {
+            if (Object.keys(inventoryData).length === 0) {
+                alert('No hay datos para exportar.');
+                return;
+            }
+            const headers = ['Marca', 'Modelo', 'Serial', 'Sistema Operativo', 'Nombre del Equipo', 'Usuario Asignado', 'Departamento', 'Foto URL'];
+            const keys = ['marca', 'modelo', 'serial', 'so', 'nombreEquipo', 'usuarioAsignado', 'departamento', 'fotoURL'];
+            
+            let csvContent = [headers.join(',')];
+            
+            Object.values(inventoryData).forEach(item => {
+                const row = keys.map(key => {
+                    let val = item[key] || '';
+                    val = String(val).replace(/"/g, '""'); // Escapar comillas
+                    if (val.includes(',') || val.includes('\n')) {
+                        val = `"${val}"`; // Envolver en comillas
+                    }
+                    return val;
+                });
+                csvContent.push(row.join(','));
+            });
+            
+            const csvString = csvContent.join('\r\n');
+            const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+            triggerDownload(blob, 'inventario_equipos.csv');
+        });
+
+        // Exportar a JSON (NUEVO)
+        exportJsonBtn.addEventListener('click', () => {
+            if (Object.keys(inventoryData).length === 0) {
+                alert('No hay datos para exportar.');
+                return;
+            }
+            const jsonString = JSON.stringify(inventoryData, null, 2); // 'null, 2' para formato bonito
+            const blob = new Blob([jsonString], { type: 'application/json;charset=utf-8;' });
+            triggerDownload(blob, 'backup_inventario.json');
+        });
+
+        // Importar desde JSON (NUEVO)
+        importJsonInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            if (!confirm("ADVERTENCIA:\nEsto reemplazará TODO el inventario actual con el contenido del archivo.\n¿Está seguro de que desea continuar?")) {
+                e.target.value = null; // Resetea el input
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = async (event) => {
+                try {
+                    const importedData = JSON.parse(event.target.result);
+                    if (typeof importedData !== 'object' || importedData === null) {
+                        throw new Error("El archivo no es un objeto JSON válido.");
+                    }
+                    
+                    showLoader(true);
+                    // IMPORTANTE: Esto borra todo y lo reemplaza
+                    const dbRef = ref(database, 'inventarios/' + currentUserId);
+                    await set(dbRef, importedData);
+                    // El listener onValue refrescará la tabla
+                    alert("¡Importación completada con éxito!");
+
+                } catch (error) {
+                    alert("Error al importar el archivo: " + error.message);
+                } finally {
+                    showLoader(false);
+                    e.target.value = null; // Resetea el input
+                }
+            };
+            reader.readAsText(file);
+        });
+
+        // Función de utilidad para descargar archivos
+        function triggerDownload(blob, filename) {
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
+    </script>
+
+</body>
+</html>
